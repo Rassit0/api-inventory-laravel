@@ -5,9 +5,18 @@ namespace App\Http\Controllers\Config;
 use App\Http\Controllers\Controller;
 use App\Models\Config\Branch;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class BranchController extends Controller
+class BranchController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
     /**
      * Display a listing of the resource.
      */
@@ -16,7 +25,8 @@ class BranchController extends Controller
         $search = $request->query("search");
         $page = $request->query("page", 1);
         $per_page = $request->query("per_page", 10);
-        $branches = Branch::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")
+        $branches = Branch::where("name", "ilike", "%{$search}%")
+            ->orWhere("address", "ilike", "%{$search}%")->orderBy("id", "desc")
             ->paginate($per_page, ['*'], 'page', $page);
         return response()->json([
             "total" => $branches->total(),

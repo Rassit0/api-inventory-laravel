@@ -6,9 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Config\Unit;
 use App\Models\Config\UnitConversion;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class UnitConversionController extends Controller
+class UnitConversionController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
     /**
      * Display a listing of the resource.
      */

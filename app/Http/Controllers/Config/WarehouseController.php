@@ -6,9 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Config\Branch;
 use App\Models\Config\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class WarehouseController extends Controller
+class WarehouseController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['config', 'index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
 
     public function config()
     {
@@ -33,8 +42,15 @@ class WarehouseController extends Controller
     public function index(Request $request)
     {
         $search = $request->query("search");
-        $warehouses = Warehouse::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")->get();
+        $page = $request->query("page", 1);
+        $per_page = $request->query("per_page", 10);
+        $warehouses = Warehouse::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")
+            ->paginate($per_page, ['*'], 'page', $page);
         return response()->json([
+            "total" => $warehouses->total(),
+            'current_page' => $warehouses->currentPage(),
+            'per_page' => $warehouses->perPage(),
+            'last_page' => $warehouses->lastPage(),
             "warehouses" => $warehouses->map(function ($warehouse) {
                 return [
                     "id" => $warehouse->id,

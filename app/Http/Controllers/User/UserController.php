@@ -7,18 +7,34 @@ use App\Http\Requests\User\UserRequest;
 use App\Models\Config\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 
-class UserController extends Controller
+class UserController extends Controller implements HasMiddleware
 {
+
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:list_user', only: ['index', 'show', 'config']),
+            new Middleware('permission:register_user', only: ['store']),
+            new Middleware('permission:edit_user', only: ['update']),
+            new Middleware('permission:delete_user', only: ['destroy']),
+        ];
+    }
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $search = $request->get('search');
+        $roleId = $request->query('role_id');
+        $page = $request->query("page", 1);
+        $per_page = $request->query("per_page", 10);
 
         $users = User::where(function ($query) use ($search) {
             // Usamos COALESCE para manejar valores NULL de forma segura y portable
@@ -26,8 +42,11 @@ class UserController extends Controller
                 ->orWhere('email', 'ILIKE', "%$search%")
                 ->orWhere('phone', 'ILIKE', "%$search%");
         })
+            ->when($roleId, function ($query, $roleId) {
+                $query->where('role_id', $roleId);
+            })
             ->orderBy('id', 'desc')
-            ->get();
+            ->paginate($per_page, ['*'], 'page', $page);
 
         return response()->json([
             'users' => $users->map(function ($user) {
@@ -56,6 +75,12 @@ class UserController extends Controller
                     'deleted_at' => $user->deleted_at ? $user->deleted_at->format('Y-m-d H:i A') : null,
                 ];
             }),
+            "meta" => [
+                "current_page" => $users->currentPage(),
+                "last_page" => $users->lastPage(),
+                "per_page" => $users->perPage(),
+                "total" => $users->total(),
+            ],
         ], 200);
     }
 

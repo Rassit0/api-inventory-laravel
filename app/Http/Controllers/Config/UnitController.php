@@ -5,9 +5,18 @@ namespace App\Http\Controllers\Config;
 use App\Http\Controllers\Controller;
 use App\Models\Config\Unit;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class UnitController extends Controller
+class UnitController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
     public function config()
     {
         return response()->json([
@@ -25,8 +34,15 @@ class UnitController extends Controller
     public function index(Request $request)
     {
         $search = $request->query("search");
-        $units = Unit::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")->get();
+        $page = $request->query("page", 1);
+        $per_page = $request->query("per_page", 10);
+        $units = Unit::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")->orderBy("id", "desc")
+            ->paginate($per_page, ['*'], 'page', $page);
         return response()->json([
+            "total" => $units->total(),
+            'current_page' => $units->currentPage(),
+            'per_page' => $units->perPage(),
+            'last_page' => $units->lastPage(),
             "units" => $units->map(function ($unit) {
                 return [
                     "id" => $unit->id,

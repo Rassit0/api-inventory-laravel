@@ -34,11 +34,13 @@ Route::group([
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api')->name('logout');
     Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('auth:api')->name('refresh');
     Route::post('/me', [AuthController::class, 'me'])->middleware('auth:api')->name('me');
+    Route::get('/verify-token', [AuthController::class, 'verifyToken'])->middleware('auth:api')->name('verify-token');
 });
 
 Route::group([
-    // "middleware" => ["auth:api"]
+    "middleware" => ["auth:api"]
 ], function ($router) {
+    
     Route::resource("roles", RoleController::class);
     Route::get("users/config", [UserController::class, 'config']);
     Route::post("users/{id}", [UserController::class, 'update']);

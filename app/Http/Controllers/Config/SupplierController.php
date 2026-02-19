@@ -5,25 +5,40 @@ namespace App\Http\Controllers\Config;
 use App\Http\Controllers\Controller;
 use App\Models\Config\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 
-class SupplierController extends Controller
+class SupplierController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $search = $request->query("search");
+        $page = $request->query("page", 1);
+        $per_page = $request->query("per_page", 10);
         $suppliers = Supplier::where(function ($query) use ($search) {
             $query->where('full_name', 'ILIKE', "%$search%")
                 ->orWhere('ruc', 'ILIKE', "%$search%")
                 ->orWhere('email', 'ILIKE', "%$search%")
                 ->orWhere('phone', 'ILIKE', "%$search%");
         })
-            ->orderBy('id', 'desc')
-            ->get();
+            ->orderBy("id", "desc")
+            ->paginate($per_page, ['*'], 'page', $page);
         return response()->json([
+            "total" => $suppliers->total(),
+            'current_page' => $suppliers->currentPage(),
+            'per_page' => $suppliers->perPage(),
+            'last_page' => $suppliers->lastPage(),
             "suppliers" => $suppliers->map(function ($supplier) {
                 return [
                     "id" => $supplier->id,
@@ -48,7 +63,7 @@ class SupplierController extends Controller
         // ✅ Validación de campos
         $validated = $request->validate([
             'full_name' => 'required|string|max:255|unique:suppliers,full_name',
-            'ruc'       => 'nullable|string|max:20|unique:suppliers,ruc',
+            'ruc'       => 'required|string|max:20|unique:suppliers,ruc',
             'image'     => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
             'email'     => 'nullable|email|max:255',
             'phone'     => 'required|string|max:50',
@@ -57,10 +72,13 @@ class SupplierController extends Controller
         ], [
             'full_name.required' => 'El nombre del proveedor es obligatorio.',
             'full_name.unique'   => 'El nombre del proveedor ya está en uso.',
+            'full_name.max'      => 'El nombre del proveedor no debe exceder los 255 caracteres.',
             'ruc.unique'         => 'El RUC/NIT ya está registrado.',
+            'ruc.required' => 'El RUC/NIT del proveedor es obligatorio.',
             'image.mimes'        => 'La imagen debe ser un archivo de tipo: jpg, jpeg, png.',
             'image.max'          => 'La imagen no debe ser mayor a 2MB.',
             'email.email'        => 'El correo electrónico no es válido.',
+            'email.max' => 'El correo electrónico no debe exceder los 255 caracteres.',
             'phone.required'     => 'El teléfono es obligatorio.',
             'state.in'           => 'El estado debe ser 0 (inactivo) o 1 (activo).',
         ]);
@@ -122,10 +140,12 @@ class SupplierController extends Controller
         ], [
             'full_name.required' => 'El nombre del proveedor es obligatorio.',
             'full_name.unique'   => 'El nombre del proveedor ya está en uso.',
+            'full_name.max'      => 'El nombre del proveedor no debe exceder los 255 caracteres.',
             'ruc.unique'         => 'El RUC/NIT ya está registrado.',
             'image.mimes'        => 'La imagen debe ser un archivo de tipo: jpg, jpeg, png.',
             'image.max'          => 'La imagen no debe ser mayor a 2MB.',
             'email.email'        => 'El correo electrónico no es válido.',
+            'email.max'          => 'El correo electrónico no debe ser mayor a 255 caracteres.',
             'phone.required'     => 'El teléfono es obligatorio.',
             'state.in'           => 'El estado debe ser 0 (inactivo) o 1 (activo).',
         ]);

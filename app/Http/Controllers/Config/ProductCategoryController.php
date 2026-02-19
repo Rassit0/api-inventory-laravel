@@ -5,11 +5,20 @@ namespace App\Http\Controllers\Config;
 use App\Http\Controllers\Controller;
 use App\Models\Config\ProductCategory;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class ProductCategoryController extends Controller
+class ProductCategoryController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:settings', only: ['index', 'show', 'store', 'update', 'destroy']),
+        ];
+    }
     public function config()
     {
         return response()->json([
@@ -30,7 +39,7 @@ class ProductCategoryController extends Controller
         $page = $request->query("page", 1);
         $per_page = $request->query("per_page", 10);
         $categories = ProductCategory::where("name", "ilike", "%{$search}%")->orderBy("id", "desc")
-        ->paginate($per_page, ['*'], 'page', $page);
+            ->paginate($per_page, ['*'], 'page', $page);
         return response()->json([
             // "total_in_page" => $categories->count(),
             "total" => $categories->total(),
@@ -117,7 +126,14 @@ class ProductCategoryController extends Controller
     public function update(Request $request, string $id)
     {
         // Buscar categoría
-        $category = ProductCategory::findOrFail($id);
+         $category = ProductCategory::find($id);
+        
+        if (!$category) {
+            return response()->json([
+                'error' => 'Categoría no encontrada',
+                'message' => 'La categoría que intenta actualizar no existe'
+            ], 404);
+        }
 
         // ✅ Validación de campos
         $validated = $request->validate([
@@ -186,22 +202,36 @@ class ProductCategoryController extends Controller
      */
     public function destroy(string $id)
     {
-        $category = ProductCategory::findOrFail($id);
-        $category->delete();
-        return response()->json([
-            'message' => 'Sucursal eliminada exitosamente',
-            'category' => [
-                "id"         => $category->id,
-                "name"       => $category->name,
-                "image"      => $category->image ? env('APP_URL') . '/storage/' . $category->image : null,
-                "state"      => $category->state,
-                "parent_id"  => $category->parent_id,
-                "parent" => $category->parent ? [
-                    "id" =>  $category->parent->id,
-                    "name" =>  $category->parent->name,
-                ] : null,
-                "created_at" => $category->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
-            ]
-        ], 200);
+        try {
+            $category = ProductCategory::find($id);
+
+            if (!$category) {
+                return response()->json([
+                    'error' => 'Categoría no encontrada',
+                    'message' => 'La categoría que intenta eliminar no existe o ya ha sido eliminada'
+                ], 404);
+            }
+            $category->delete();
+            return response()->json([
+                'message' => 'Sucursal eliminada exitosamente',
+                'category' => [
+                    "id"         => $category->id,
+                    "name"       => $category->name,
+                    "image"      => $category->image ? env('APP_URL') . '/storage/' . $category->image : null,
+                    "state"      => $category->state,
+                    "parent_id"  => $category->parent_id,
+                    "parent" => $category->parent ? [
+                        "id" =>  $category->parent->id,
+                        "name" =>  $category->parent->name,
+                    ] : null,
+                    "created_at" => $category->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
+                ]
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => 'Error al eliminar la categoría',
+                'message' => $th->getMessage(),
+            ], 500);
+        }
     }
 }

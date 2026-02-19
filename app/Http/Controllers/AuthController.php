@@ -96,6 +96,47 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
+    /**
+     * Verify the token and return the authenticated user's information.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function verifyToken()
+    {
+        try {
+            $user = JWTAuth::parseToken()->authenticate();
+            
+            if (!$user) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+            
+            $permissions = $user->getAllPermissions()->pluck('name');
+            
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'surname' => $user->surname,
+                    'full_name' => $user->name . ' ' . $user->surname,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar ? env("APP_URL") . "/storage/" . $user->avatar : null,
+                    'role' => [
+                        'id' => $user->role->id,
+                        'name' => $user->role->name,
+                        'permissions' => $permissions,
+                    ]
+                ],
+                'expires_at' => now()->addMinutes(JWTAuth::factory()->getTTL())->getPreciseTimestamp(3)
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Token is invalid or expired',
+                'message' => $e->getMessage()
+            ], 401);
+        }
+    }
+
     protected function respondWithToken($token)
     {
         $permissions = JWTAuth::user()->getAllPermissions()->pluck('name');
@@ -110,8 +151,8 @@ class AuthController extends Controller
                 "role" => [
                     "id" => JWTAuth::user()->role->id,
                     "name" => JWTAuth::user()->role->name,
+                    "permissions" => $permissions,
                 ],
-                "permissions" => $permissions,
             ]
         ]);
     }

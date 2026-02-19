@@ -15,14 +15,29 @@ use App\Models\Config\UnitConversion;
 use App\Models\Config\Warehouse;
 use App\Models\Product\Product;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Validators\ValidationException;
 
-class ProductController extends Controller
+class ProductController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            'auth:api',
+            new Middleware('permission:list_product', only: ['index', 'show', 'config']),
+            new Middleware('permission:register_product', only: ['store']),
+            new Middleware('permission:edit_product', only: ['update']),
+            new Middleware('permission:delete_product', only: ['destroy']),
+            // new Middleware('permission:show_inventory_product', only: ['destroy']),
+            // new Middleware('permission:show_wallet_price_product', only: ['destroy']),
+        ];
+    }
 
     public function config()
     {
@@ -110,13 +125,39 @@ class ProductController extends Controller
             'file.max' => 'El tamaño máximo permitido es de 5MB.',
         ]);
 
-        // crear el archivo de importación $php artisan make:import Product/ImportExcelProducts
-        // ✅ Aquí ya tienes el archivo validado:
-        $file = $request->file('file');
-        $data = Excel::import(new ImportExcelProducts, $file);
-        return response()->json([
-            "message" => "La importación se realizó con exito"
-        ], 200);
+        try {
+            Excel::import(new ImportExcelProducts, $request->file('file'));
+
+            return response()->json([
+                'message' => 'La importación se realizó con éxito'
+            ], 200);
+        } catch (ValidationException $e) {
+
+            $failures = $e->failures();
+            $errorCount = count($failures);
+            $showCount = min(10, $errorCount); // Muestra como máximo 10 errores
+            $remainingErrors = $errorCount - $showCount;
+
+            $errors = collect($failures)
+                ->sortBy(fn($failure) => $failure->row()) // Ordenar por fila
+                ->take($showCount)
+                ->map(fn($failure) => [
+                    'fila'   => $failure->row(),
+                    'campo'  => $failure->attribute(),
+                    'error'  => $failure->errors()[0],
+                ])
+                ->values() // Reinicia los índices numéricos
+                ->toArray(); // Convierte a array para asegurar el formato correcto
+
+            return response()->json([
+                'message' => $remainingErrors > 0
+                    ? "Se encontraron $errorCount errores. Mostrando los primeros $showCount."
+                    : "Se encontraron $errorCount errores.",
+                'errors' => $errors,
+                'total_errors' => $errorCount,
+                'remaining_errors' => $remainingErrors > 0 ? $remainingErrors : 0,
+            ], 422);
+        }
     }
 
     /**
