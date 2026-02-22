@@ -105,13 +105,13 @@ class AuthController extends Controller
     {
         try {
             $user = JWTAuth::parseToken()->authenticate();
-            
+
             if (!$user) {
                 return response()->json(['error' => 'User not found'], 404);
             }
-            
+
             $permissions = $user->getAllPermissions()->pluck('name');
-            
+
             return response()->json([
                 'user' => [
                     'id' => $user->id,
@@ -127,7 +127,6 @@ class AuthController extends Controller
                     ]
                 ],
             ]);
-            
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Token is invalid or expired',
@@ -140,11 +139,11 @@ class AuthController extends Controller
     {
         $permissions = JWTAuth::user()->getAllPermissions()->pluck('name');
         return response()->json([
-            'id' => JWTAuth::user()->id,
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_at' => now()->addMinutes(JWTAuth::factory()->getTTL())->getPreciseTimestamp(3), // Timestamp absoluto en milisegundos
             "user" => [
+                'id' => JWTAuth::user()->id,
                 "full_name" => JWTAuth::user()->name . ' ' . JWTAuth::user()->surname,
                 "email" => JWTAuth::user()->email,
                 "avatar" => JWTAuth::user()->avatar ? env("APP_URL") . "/storage/" . JWTAuth::user()->avatar : NULL,
