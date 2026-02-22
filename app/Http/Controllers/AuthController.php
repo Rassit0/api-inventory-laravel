@@ -140,6 +140,7 @@ class AuthController extends Controller
     {
         $permissions = JWTAuth::user()->getAllPermissions()->pluck('name');
         return response()->json([
+            'id' => JWTAuth::user()->id,
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_at' => now()->addMinutes(JWTAuth::factory()->getTTL())->getPreciseTimestamp(3), // Timestamp absoluto en milisegundos
