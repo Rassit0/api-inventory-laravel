@@ -126,7 +126,6 @@ class AuthController extends Controller
                         'permissions' => $permissions,
                     ]
                 ],
-                'expires_at' => now()->addMinutes(JWTAuth::factory()->getTTL())->getPreciseTimestamp(3)
             ]);
             
         } catch (\Exception $e) {
