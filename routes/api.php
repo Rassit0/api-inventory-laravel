@@ -16,7 +16,6 @@ use App\Http\Controllers\Config\UnitController;
 use App\Http\Controllers\Config\UnitConversionController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Product\ProductController;
-use App\Http\Controllers\Product\ProductPriceController;
 use App\Http\Controllers\Product\ProductWalletController;
 use App\Http\Controllers\Product\ProductWarehouseController;
 use App\Http\Controllers\Roles\RoleController;
@@ -67,7 +66,7 @@ Route::group([
     Route::post("products/s3_image", [ProductController::class, 's3_image']);
     Route::post("products/{id}", [ProductController::class, 'update']);
     Route::resource("products", ProductController::class);
-    Route::post("products-excel/export", [ProductController::class, 'download_excel']);
+    Route::get("products-excel/export", [ProductController::class, 'download_excel']);
     Route::post("products-excel/import", [ProductController::class, 'import_excel']);
 
     Route::resource("product-warehouses", ProductWarehouseController::class);

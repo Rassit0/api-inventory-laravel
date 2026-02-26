@@ -23,12 +23,13 @@ class ProductResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
-            'image' => $diskOptimized->exists($this->image) ? $diskOptimized->url($this->image) : $this->image,
-            'category_id' => $this->category_id,
-            'category' => [
+            // 'image' => $diskOptimized->exists($this->image) ? $diskOptimized->url($this->image) : $this->image,
+            'image' => $this->image && $diskOptimized->exists($this->image) ? $diskOptimized->url($this->image) : $this->image,
+            'category_id' => $this->category_id ?? null,
+            'category' => $this->category ? [
                 'id' => $this->category->id,
                 'name' => $this->category->name,
-            ],
+            ] : null,
             // 'unit_id' => $this->unit_id,
             // 'unit' => [
             //     'id' => $this->unit->id,

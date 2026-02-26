@@ -22,7 +22,7 @@
                 <td>{{ $product->sku }}</td>
                 <td>{{ $product->price_general }}</td>
                 <td>{{ $product->price_company }}</td>
-                <td>{{ $product->category->name }}</td>
+                <td>{{ $product->category?->name ?? 'N/A' }}</td>
                 <td>{{ $product->is_gift ? 'Si' : 'No' }}</td>
                 <td>
                     {{ $product->is_discount ? 'Si' : 'No' }}

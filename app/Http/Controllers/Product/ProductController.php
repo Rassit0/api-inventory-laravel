@@ -11,7 +11,6 @@ use App\Imports\Product\ImportExcelProducts;
 use App\Models\Config\Branch;
 use App\Models\Config\ProductCategory;
 use App\Models\Config\Unit;
-use App\Models\Config\UnitConversion;
 use App\Models\Config\Warehouse;
 use App\Models\Product\Product;
 use Illuminate\Http\Request;
@@ -23,6 +22,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException;
+use Cloudinary\Api\Upload\UploadApi;
 
 class ProductController extends Controller implements HasMiddleware
 {
@@ -84,12 +84,13 @@ class ProductController extends Controller implements HasMiddleware
             $search = $request->search;
             $category_id = $request->category_id;
             $warehouse_id = $request->warehouse_id;
-            // $unit_id = $request->unit_id;
+            $unit_id = $request->unit_id;
             $branch_id = $request->branch_id;
             $allow_without_stock = $request->allow_without_stock;
             $is_gift = $request->is_gift;
+            $state = $request->state;
             // Filtrar usandoo scope en el Model
-            $products = Product::filterAdvance($search, $category_id, $warehouse_id, $branch_id, $allow_without_stock, $is_gift)
+            $products = Product::filterAdvance($search, $category_id, $warehouse_id, $unit_id, $branch_id, $allow_without_stock, $is_gift, $state)
                 ->orderBy('id', 'desc')
                 ->get();
 
@@ -175,8 +176,9 @@ class ProductController extends Controller implements HasMiddleware
             $branch_id = $request->branch_id;
             $allow_without_stock = $request->allow_without_stock;
             $is_gift = $request->is_gift;
+            $state = $request->state;
             // Filtrar usandoo scope en el Model
-            $products = Product::filterAdvance($search, $category_id, $warehouse_id, $unit_id, $branch_id, $allow_without_stock, $is_gift)
+            $products = Product::filterAdvance($search, $category_id, $warehouse_id, $unit_id, $branch_id, $allow_without_stock, $is_gift, $state)
                 ->orderBy('id', 'desc')
                 ->paginate($per_page, ['*'], 'page', $page);
 
@@ -208,7 +210,7 @@ class ProductController extends Controller implements HasMiddleware
     {
         $filePath = $request->file('image')->store('uploads', 's3'); // 's3' es el disco configurado en filesystems.php instalando con el comando $composer require aws/aws-sdk-php
 
-        /** @var Filesystem $disk */  // 👈 Tipado explícito para Intelephense
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */  // 👈 Tipado explícito para Intelephense
         $disk = Storage::disk('s3');
 
         // Obtener la URL pública o temporal
@@ -226,6 +228,29 @@ class ProductController extends Controller implements HasMiddleware
         ], 200);
     }
 
+    public function cloudinary_image(Request $request)
+    {
+        $file = $request->file('image');
+        if (!$file) {
+            return response()->json(['message' => 'No image provided'], 400);
+        }
+
+        try {
+            $uploadApi = new UploadApi();
+            $result = $uploadApi->upload($file->getRealPath(), [
+                'folder' => 'uploads/products',
+            ]);
+
+            return response()->json([
+                'message' => 'Imagen subida a Cloudinary',
+                'url' => $result['secure_url'],
+                'public_id' => $result['public_id'],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error uploading to Cloudinary', 'error' => $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Store a newly created resource in storage.
      */
@@ -238,31 +263,49 @@ class ProductController extends Controller implements HasMiddleware
         DB::beginTransaction();
 
         try {
-            if ($validated['image']) {
+            // try {
+                //     // Subir al bucket original
+                //     $filePath = $file->store('uploads/products', 's3');
+
+                //     if (!$filePath) {
+                //         throw new \Exception("La imagen no se pudo subir al bucket S3");
+                //     }
+                //     // Se sube al bucket original s3 pero con un lambda en AWS se transfiere al bucket optimizado optimized_s3
+
+                //     /** @var Filesystem $disk */  // 👈 Tipado explícito para Intelephens
+                //     // $diskOptimized = Storage::disk('optimized_s3');
+                //     // $url = $diskOptimized->url($filePath);
+
+                //     // Asignamos al validated para guardar en la BD
+                //     $validated['image'] = $filePath;
+                // } catch (\Exception $e) {
+                //     throw new \Exception("Error al subir la imagen al almacenamiento: " . $e->getMessage());
+                // }
+            if ($request->hasFile('image')) {
                 $file = $request->file('image');
 
                 try {
-                    // Subir al bucket original
-                    $filePath = $file->store('uploads/products', 's3');
+                    // Subir a Cloudinary
+                    $uploadApi = new UploadApi();
+                    $result = $uploadApi->upload($file->getRealPath(), [
+                        'folder' => 'uploads/products',
+                    ]);
 
-                    if (!$filePath) {
-                        throw new \Exception("La imagen no se pudo subir al bucket S3");
-                    }
-                    // Se sube al bucket original s3 pero con un lambda en AWS se transfiere al bucket optimizado optimized_s3
-
-                    /** @var Filesystem $disk */  // 👈 Tipado explícito para Intelephens
-                    // $diskOptimized = Storage::disk('optimized_s3');
-                    // $url = $diskOptimized->url($filePath);
-
-                    // Asignamos al validated para guardar en la BD
-                    $validated['image'] = $filePath;
+                    // Asignamos al validated la URL segura para guardar en la BD
+                    $validated['image'] = $result['secure_url'];
                 } catch (\Exception $e) {
-                    throw new \Exception("Error al subir la imagen al almacenamiento: " . $e->getMessage());
+                    throw new \Exception("Error al subir la imagen a Cloudinary: " . $e->getMessage());
                 }
             }
 
             // 🟢 Crear el producto principal
+            // Log::info('Creating product with data', $validated);
             $product = Product::create($validated);
+
+            // ✅ Verificar que el producto se creó correctamente
+            if (!$product || !$product->exists) {
+                throw new \Exception('Failed to create product in database');
+            }
 
             // Crear las conversiones de unidad (si existen) para este producto
             // if (!empty($validated['product_unit_conversions'])) {
@@ -363,7 +406,7 @@ class ProductController extends Controller implements HasMiddleware
                     }
                     // Se sube al bucket original s3 pero con un lambda en AWS se transfiere al bucket optimizado optimized_s3
 
-                    /** @var Filesystem $diskOptimized */  // 👈 Tipado explícito para Intelephens
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $diskOptimized */  // 👈 Tipado explícito para Intelephens
                     // $diskOptimized = Storage::disk('optimized_s3');
                     // $url = $diskOptimized->url($filePath);
 
@@ -416,9 +459,12 @@ class ProductController extends Controller implements HasMiddleware
 
             DB::commit();
 
+            // 🔄 Cargar relaciones en la instancia existente
+            $product->load(['warehouses', 'wallets']);
+
             return response()->json([
                 'message' => 'Producto actualizado exitosamente',
-                'product' => ProductResource::make($product->fresh(['warehouses', 'wallets']))
+                'product' => ProductResource::make($product)
             ], 200);
         } catch (\Throwable $th) {
             DB::rollBack();

@@ -49,6 +49,12 @@ class UnitController extends Controller implements HasMiddleware
                     "name" => $unit->name,
                     "description" => $unit->description,
                     "state" => $unit->state,
+                    "conversions" => $unit->conversions->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->unitTo->id,
+                            'name' => $conversion->unitTo->name,
+                        ];
+                    }),
                     "created_at" => $unit->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
                 ];
             })
@@ -86,6 +92,12 @@ class UnitController extends Controller implements HasMiddleware
                 "name" => $unit->name,
                 "description" => $unit->description,
                 "state" => $unit->state,
+                "conversions" => $unit->conversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->unitTo->id,
+                        'name' => $conversion->unitTo->name,
+                    ];
+                }),
                 "created_at" => $unit->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
             ]
         ], 201);
@@ -130,6 +142,12 @@ class UnitController extends Controller implements HasMiddleware
                 "name" => $unit->name,
                 "description" => $unit->description,
                 "state" => $unit->state,
+                "conversions" => $unit->conversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->unitTo->id,
+                        'name' => $conversion->unitTo->name,
+                    ];
+                }),
                 "created_at" => $unit->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
             ]
         ], 200);
@@ -149,6 +167,12 @@ class UnitController extends Controller implements HasMiddleware
                 "name" => $unit->name,
                 "description" => $unit->description,
                 "state" => $unit->state,
+                "conversions" => $unit->conversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->unitTo->id,
+                        'name' => $conversion->unitTo->name,
+                    ];
+                }),
                 "created_at" => $unit->created_at->timezone("America/La_Paz")->format("Y/m/d h:i:s A"),
             ]
         ], 200);

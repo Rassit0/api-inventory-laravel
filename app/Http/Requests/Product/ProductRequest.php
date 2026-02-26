@@ -69,21 +69,21 @@ class ProductRequest extends FormRequest
             'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
             'sku' => 'required|string|max:100|unique:products,sku' . ($productId ? ",$productId" : ''),
             'description' => 'required|string',
-            'is_gift' => 'boolean',
+            'is_gift' => 'boolean', // Es regalo?
             'allow_without_stock' => 'boolean',
             'stock_status' => 'nullable|in:available,low_stock,out_of_stock',
 
             // Precios base del producto
             'price_general' => 'required|numeric|min:0',
             'price_company' => 'required|numeric|min:0',
-            'is_discount' => 'boolean',
+            'is_discount' => 'boolean', // Tiene descuento?
             'max_discount' => 'nullable|numeric|min:0|max:100',
 
             // Estado
             'state' => 'boolean',
 
             // Garantía
-            'warranty_day' => 'nullable|integer|min:0',
+            'warranty_day' => 'nullable|integer|min:0',// Dias de garantia
 
             // Impuestos
             'is_taxable' => 'boolean',

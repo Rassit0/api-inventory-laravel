@@ -3,7 +3,6 @@
 namespace App\Models\Product;
 
 use App\Models\Config\ProductCategory;
-use App\Models\Product\ProductUnitConversion;
 use App\Models\Config\Unit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -62,7 +61,7 @@ class Product extends Model
     //     return $this->hasMany(ProductUnitConversion::class, 'product_id');
     // }
 
-    public function scopeFilterAdvance($query, $search, $category_id, $warehouse_id, $unit_id, $branch_id, $allow_without_stock, $is_gift)
+    public function scopeFilterAdvance($query, $search, $category_id, $warehouse_id, $unit_id, $branch_id, $allow_without_stock, $is_gift, $state)
     {
         if ($search) {
             $query->where(function ($query) use ($search) {
@@ -95,11 +94,14 @@ class Product extends Model
                 $wallet->where('branch_id', $branch_id);
             });
         }
-        if ($allow_without_stock) {
-            $query->where('allow_without_stock', $allow_without_stock);
+        if ($allow_without_stock !== null && $allow_without_stock !== '') {
+            $query->where('allow_without_stock', $allow_without_stock == '1');
         }
-        if ($is_gift) {
-            $query->where('is_gift', $is_gift);
+        if ($is_gift !== null && $is_gift !== '') {
+            $query->where('is_gift', $is_gift == '1');
+        }
+        if ($state !== null && $state !== '') {
+            $query->where('state', $state == '1');
         }
         return $query;
     }
